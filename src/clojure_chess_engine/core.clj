@@ -1,7 +1,10 @@
 (ns clojure-chess-engine.core
+  (:require [clojure.string :as str])
   (:import
    (java.awt Dimension GridLayout Color)
-   (javax.swing JFrame JButton JPanel UIManager ImageIcon)))
+   (java.awt.event ActionListener)
+   (javax.swing JFrame JButton JPanel UIManager ImageIcon)
+   (javax.swing.border LineBorder)))
 
 (def initial-fen [[:r :n :b :q :k :b :n :r]
                   [:p :p :p :p :p :p :p :p]
@@ -17,6 +20,7 @@
 
 (def brown-color (Color. 0x493323))
 (def white-color (Color. 0xE1BC91))
+(def green-color (Color. 0x7FFFD4))
 
 (defmulti piece->imgsrc identity)
 
@@ -34,22 +38,49 @@
 (defmethod piece->imgsrc :P [_] "resources/images/pawn-white.png")
 (defmethod piece->imgsrc :e [_] "")
 
-(defn rank-file->field-color [rank file]
+(defn rank-file->square-color [rank file]
   (if (zero? (mod (+ rank file) 2))
     white-color
     brown-color))
 
-(defn get-piece [board rank file]
-  (get-in board [rank file]))
+(defn get-piece [board square]
+  (get-in board square))
+
+(defn square-empty? [board square]
+  (= (get-piece board square) :e))
+
+(def last-clicked-button (atom nil))
+
+(defn str->square [s]
+  (map #(Integer/parseInt %) (str/split s #"-")))
+
+(defn handle-click [e]
+  (let [button (.getSource e)
+        square (str->square (.getName button))]
+    (if (nil? @last-clicked-button)
+      (do
+        (reset! last-clicked-button button)
+        (.setBorder @last-clicked-button (LineBorder. green-color 4)))
+      (if (square-empty? initial-fen square)
+        (do
+          (.setBorder @last-clicked-button (LineBorder. nil))
+          (reset! last-clicked-button nil))
+        (do
+          (.setBorder @last-clicked-button (LineBorder. nil))
+          (reset! last-clicked-button button)
+          (.setBorder @last-clicked-button (LineBorder. green-color 4)))))))
 
 (defn place-pieces [board-pane]
   (doseq [i (range 8)
           j (range 8)
-          :let [field-color (rank-file->field-color i j)
-                piece (get-piece initial-fen i j)]]
+          :let [square-color (rank-file->square-color i j)
+                piece (get-piece initial-fen [i j])]]
     (.add board-pane (doto (JButton.)
-                       (.setBackground field-color)
-                       (.setIcon (ImageIcon. (piece->imgsrc piece)))))))
+                       (.setName (str i "-" j))
+                       (.setBackground square-color)
+                       (.setIcon (ImageIcon. (piece->imgsrc piece)))
+                       (.addActionListener (reify ActionListener
+                                             (actionPerformed [this e] (handle-click e))))))))
 
 (defn- main []
   (UIManager/setLookAndFeel (UIManager/getCrossPlatformLookAndFeelClassName))
@@ -65,11 +96,4 @@
     (.setVisible my-frame true)))
 
 (main)
-
-
-
-
-
-
-
-
+;; @last-clicked-button
