@@ -38,6 +38,22 @@
 (defmethod piece->imgsrc :P [_] "resources/images/pawn-white.png")
 (defmethod piece->imgsrc :e [_] "")
 
+;; directions
+(def dir-up         [1 0])
+(def dir-down       [-1 0])
+(def dir-right      [0 1])
+(def dir-left       [0 -1])
+(def dir-up-right   [1 1])
+(def dir-up-left    [1 -1])
+(def dir-down-right [-1 1])
+(def dir-down-left  [-1 -1])
+
+(def rook-directions [dir-left dir-right dir-up dir-down])
+(def bishop-directions [dir-up-left dir-up-right dir-down-left dir-down-right])
+(def all-directions (concat rook-directions bishop-directions))
+(def knight-directions [[2 1] [2 -1] [1 2] [1 -2]
+                        [-2 1] [-2 -1] [-1 2] [-1 -2]])
+
 (defn rank-file->square-color [rank file]
   (if (zero? (mod (+ rank file) 2))
     white-color
@@ -49,16 +65,55 @@
 (defn square-empty? [board square]
   (= (get-piece board square) :e))
 
+(defn square-on-board? [[rank tile]]
+  (and (<= 0 rank 7) (<= 0 tile 7)))
+
+(defn add-squares [sq1 sq2]
+  (map + sq1 sq2))
+
+(defn piece-color [p]
+  (cond
+      (white-piece? p) :white
+      (black-piece? p) :black))
+
+(piece-color :P)
+
+(defn same-piece-color? [p1 p2]
+  (= (piece-color p1) (piece-color p2)))
+
 (def last-clicked-button (atom nil))
 
 (defn str->square [s]
   (map #(Integer/parseInt %) (str/split s #"-")))
+
+
+
+(defmulti get-pseudolegal-destinations (fn [board from-sq] (get-piece board from-sq)))
+
+(defmethod get-pseudolegal-destinations :n
+  [board from-sq]
+  (->> knight-directions
+       (map #(add-squares from-sq %))
+       (filter square-on-board?)
+       (remove #(same-piece-color? :n (get-piece board %)))
+       #_set))
+
+(defmethod get-pseudolegal-destinations :N
+  [board from-sq]
+  (->> knight-directions
+       (map #(add-squares from-sq %))
+       (filter square-on-board?)
+       (remove #(same-piece-color? :N (get-piece board %)))
+       #_set))
+
+(get-pseudolegal-destinations initial-fen [0 1])
 
 (defn handle-click [e]
   (let [button (.getSource e)
         square (str->square (.getName button))]
     (if (nil? @last-clicked-button)
       (do
+        (println (get-pseudolegal-destinations initial-fen square))
         (reset! last-clicked-button button)
         (.setBorder @last-clicked-button (LineBorder. green-color 4)))
       (if (square-empty? initial-fen square)
@@ -66,6 +121,7 @@
           (.setBorder @last-clicked-button (LineBorder. nil))
           (reset! last-clicked-button nil))
         (do
+          (println (get-pseudolegal-destinations initial-fen square))
           (.setBorder @last-clicked-button (LineBorder. nil))
           (reset! last-clicked-button button)
           (.setBorder @last-clicked-button (LineBorder. green-color 4)))))))
