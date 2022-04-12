@@ -86,7 +86,13 @@
 (defn str->square [s]
   (map #(Integer/parseInt %) (str/split s #"-")))
 
-
+(defn take-while+
+  [pred coll]
+  (lazy-seq
+   (when-let [[f & r] (seq coll)]
+     (if (pred f)
+       (cons f (take-while+ pred r))
+       [f]))))
 
 (defmulti get-pseudolegal-destinations (fn [board from-sq] (get-piece board from-sq)))
 
@@ -106,7 +112,42 @@
        (remove #(same-piece-color? :N (get-piece board %)))
        #_set))
 
-(get-pseudolegal-destinations initial-fen [0 1])
+(defn get-squares-in-direction [board from-sq dir]
+  (let [piece (get-piece board from-sq)]
+    (->> (add-squares from-sq dir)
+         (iterate #(add-squares % dir))
+         (split-with #(square-empty? board %))
+         (take-while+ #(square-empty? board %))
+         (filter square-on-board?)
+         (remove #(same-piece-color? piece (get-piece board %))))))
+
+(defn get-squares-in-directions [board from-sq dirs]
+  (mapcat #(get-squares-in-direction board from-sq %) dirs))
+
+(defmethod get-pseudolegal-destinations :r
+  [board from-sq]
+  (get-squares-in-direction board from-sq rook-directions))
+
+(defmethod get-pseudolegal-destinations :R
+  [board from-sq]
+  (get-squares-in-direction board from-sq rook-directions))
+
+(defmethod get-pseudolegal-destinations :b
+  [board from-sq]
+  (get-squares-in-directions board from-sq bishop-directions))
+
+(defmethod get-pseudolegal-destinations :B
+  [board from-sq]
+  (get-squares-in-directions board from-sq bishop-directions))
+
+(defmethod get-pseudolegal-destinations :q
+  [board from-sq]
+  (get-squares-in-directions board from-sq all-directions))
+
+(defmethod get-pseudolegal-destinations :Q
+  [board from-sq]
+  (get-squares-in-directions board from-sq all-directions))
+
 
 (defn handle-click [e]
   (let [button (.getSource e)
