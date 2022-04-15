@@ -1,19 +1,19 @@
 (ns clojure-chess-engine.core
   (:require [clojure.string :as str])
   (:import
-   (java.awt Dimension GridLayout Color)
+   (java.awt Dimension GridLayout Color Image)
    (java.awt.event ActionListener)
    (javax.swing JFrame JButton JPanel UIManager ImageIcon)
    (javax.swing.border LineBorder)))
 
-(def initial-fen [[:r :n :b :q :k :b :n :r]
-                  [:p :p :p :p :p :p :p :p]
-                  [:e :e :e :e :e :e :e :e]
-                  [:e :e :e :e :e :e :e :e]
-                  [:e :e :e :e :e :e :e :e]
-                  [:e :e :e :e :e :e :e :e]
-                  [:P :P :P :P :P :P :P :P]
-                  [:R :N :B :Q :K :B :N :R]])
+(def initial-board [[:r :n :b :q :k :b :n :r]
+                    [:p :p :p :p :p :p :p :p]
+                    [:e :e :e :e :e :e :e :e]
+                    [:e :e :e :e :e :e :e :e]
+                    [:e :e :e :e :e :e :e :e]
+                    [:e :e :e :e :e :e :e :e]
+                    [:P :P :P :P :P :P :P :P]
+                    [:R :N :B :Q :K :B :N :R]])
 
 (def white-piece? #{:R :N :B :Q :K :P})
 (def black-piece? #{:r :n :b :q :k :p})
@@ -73,8 +73,8 @@
 
 (defn piece-color [p]
   (cond
-      (white-piece? p) :white
-      (black-piece? p) :black))
+    (white-piece? p) :white
+    (black-piece? p) :black))
 
 (piece-color :P)
 
@@ -82,6 +82,7 @@
   (= (piece-color p1) (piece-color p2)))
 
 (def last-clicked-button (atom nil))
+(def available-positions (atom #{}))
 
 (defn str->square [s]
   (map #(Integer/parseInt %) (str/split s #"-")))
@@ -126,11 +127,11 @@
 
 (defmethod get-pseudolegal-destinations :r
   [board from-sq]
-  (get-squares-in-direction board from-sq rook-directions))
+  (get-squares-in-directions board from-sq rook-directions))
 
 (defmethod get-pseudolegal-destinations :R
   [board from-sq]
-  (get-squares-in-direction board from-sq rook-directions))
+  (get-squares-in-directions board from-sq rook-directions))
 
 (defmethod get-pseudolegal-destinations :b
   [board from-sq]
@@ -148,48 +149,66 @@
   [board from-sq]
   (get-squares-in-directions board from-sq all-directions))
 
-
 (defn handle-click [e]
   (let [button (.getSource e)
         square (str->square (.getName button))]
     (if (nil? @last-clicked-button)
       (do
-        (println (get-pseudolegal-destinations initial-fen square))
+        (reset! available-positions (get-pseudolegal-destinations initial-board square))
         (reset! last-clicked-button button)
         (.setBorder @last-clicked-button (LineBorder. green-color 4)))
-      (if (square-empty? initial-fen square)
+      (if (square-empty? initial-board square)
         (do
           (.setBorder @last-clicked-button (LineBorder. nil))
           (reset! last-clicked-button nil))
         (do
-          (println (get-pseudolegal-destinations initial-fen square))
+          (reset! available-positions (get-pseudolegal-destinations initial-board square))
           (.setBorder @last-clicked-button (LineBorder. nil))
           (reset! last-clicked-button button)
           (.setBorder @last-clicked-button (LineBorder. green-color 4)))))))
 
-(defn place-pieces [board-pane]
+(defn draw-board [board-pane board-buttons]
   (doseq [i (range 8)
           j (range 8)
-          :let [square-color (rank-file->square-color i j)
-                piece (get-piece initial-fen [i j])]]
-    (.add board-pane (doto (JButton.)
-                       (.setName (str i "-" j))
-                       (.setBackground square-color)
-                       (.setIcon (ImageIcon. (piece->imgsrc piece)))
-                       (.addActionListener (reify ActionListener
-                                             (actionPerformed [this e] (handle-click e))))))))
+          :let [button (board-buttons [i j])]]
+    (.add board-pane button)))
+
+(def buttons
+  (into {} (for [i (range 8)
+                       j (range 8)
+                       :let [square-color (rank-file->square-color i j)]]
+                   [[i j] (doto (JButton.)
+                            (.setName (str i "-" j))
+                            (.setBackground square-color)
+                            (.addActionListener (reify ActionListener
+                                                  (actionPerformed [this e] (handle-click e)))))])))
+
+
+(defn proba-tabla [board available-positions]
+  (doseq [entry buttons
+          :let [[i j] (key entry)
+                button (val entry)
+                piece (get-piece board [i j])]]
+    (.setIcon button (ImageIcon.
+                      (if (contains? available-positions [i j])
+                        (.getScaledInstance
+                         (.getImage
+                          (ImageIcon. "resources/images/full-red-circle.png"))
+                         30 30 Image/SCALE_DEFAULT)
+                        (piece->imgsrc piece))))))
 
 (defn- main []
   (UIManager/setLookAndFeel (UIManager/getCrossPlatformLookAndFeelClassName))
   (let [my-frame (doto (JFrame. "Chess Game")
-                   (.setLocationRelativeTo nil))
+                   (.setLocationRelativeTo nil)
+                   (.setSize 1000 700))
         board-pane (doto (JPanel.)
                      (.setLayout (GridLayout. 8 8))
                      (.setPreferredSize (Dimension. 1000 600))
                      (.setMaximumSize (Dimension. 1000 600)))]
-    (place-pieces board-pane)
+    (proba-tabla initial-board #{})
+    (draw-board board-pane buttons)
     (.add my-frame board-pane)
-    (.setSize my-frame 1000 700)
     (.setVisible my-frame true)))
 
 (main)
