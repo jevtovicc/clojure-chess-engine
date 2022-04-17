@@ -65,8 +65,8 @@
 (defn square-empty? [board square]
   (= (get-piece board square) :e))
 
-(defn square-on-board? [[rank tile]]
-  (and (<= 0 rank 7) (<= 0 tile 7)))
+(defn square-on-board? [[rank file]]
+  (and (<= 0 rank 7) (<= 0 file 7)))
 
 (defn add-squares [sq1 sq2]
   (map + sq1 sq2))
@@ -76,13 +76,8 @@
     (white-piece? p) :white
     (black-piece? p) :black))
 
-(piece-color :P)
-
 (defn same-piece-color? [p1 p2]
   (= (piece-color p1) (piece-color p2)))
-
-(def last-clicked-button (atom nil))
-(def available-positions (atom #{}))
 
 (defn str->square [s]
   (map #(Integer/parseInt %) (str/split s #"-")))
@@ -149,23 +144,10 @@
   [board from-sq]
   (get-squares-in-directions board from-sq all-directions))
 
-(defn handle-click [e]
-  (let [button (.getSource e)
-        square (str->square (.getName button))]
-    (if (nil? @last-clicked-button)
-      (do
-        (reset! available-positions (get-pseudolegal-destinations initial-board square))
-        (reset! last-clicked-button button)
-        (.setBorder @last-clicked-button (LineBorder. green-color 4)))
-      (if (square-empty? initial-board square)
-        (do
-          (.setBorder @last-clicked-button (LineBorder. nil))
-          (reset! last-clicked-button nil))
-        (do
-          (reset! available-positions (get-pseudolegal-destinations initial-board square))
-          (.setBorder @last-clicked-button (LineBorder. nil))
-          (reset! last-clicked-button button)
-          (.setBorder @last-clicked-button (LineBorder. green-color 4)))))))
+(def last-clicked-button (atom nil))
+(def available-positions (atom #{}))
+
+(declare update-board-buttons)
 
 (defn draw-board [board-pane board-buttons]
   (doseq [i (range 8)
@@ -173,16 +155,53 @@
           :let [button (board-buttons [i j])]]
     (.add board-pane button)))
 
+(defn handle-click [e]
+  (let [button (.getSource e)
+        square (str->square (.getName button))]
+    (if (nil? @last-clicked-button)
+      (let [previous-avaialbe-positions @available-positions]
+        (reset! available-positions (get-pseudolegal-destinations initial-board square))
+        (reset! last-clicked-button button)
+        (.setBorder @last-clicked-button (LineBorder. green-color 4))
+        (update-board-buttons previous-avaialbe-positions @available-positions))
+      (if (square-empty? initial-board square)
+        (do
+          (.setBorder @last-clicked-button (LineBorder. nil))
+          (reset! last-clicked-button nil))
+        (let [previous-avaialbe-positions @available-positions]
+          (reset! available-positions (get-pseudolegal-destinations initial-board square))
+          (.setBorder @last-clicked-button (LineBorder. nil))
+          (reset! last-clicked-button button)
+          (.setBorder @last-clicked-button (LineBorder. green-color 4))
+          (update-board-buttons previous-avaialbe-positions @available-positions))))))
+
 (def buttons
   (into {} (for [i (range 8)
-                       j (range 8)
-                       :let [square-color (rank-file->square-color i j)]]
-                   [[i j] (doto (JButton.)
-                            (.setName (str i "-" j))
-                            (.setBackground square-color)
-                            (.addActionListener (reify ActionListener
-                                                  (actionPerformed [this e] (handle-click e)))))])))
+                 j (range 8)
+                 :let [square-color (rank-file->square-color i j)]]
+             [[i j] (doto (JButton.)
+                      (.setName (str i "-" j))
+                      (.setBackground square-color)
+                      (.addActionListener (reify ActionListener
+                                            (actionPerformed [this e] (handle-click e)))))])))
 
+(defn remove-circles [positions]
+  (doseq [square positions
+          :let [button (buttons square)]]
+    (.setIcon button nil)))
+
+(defn add-circles [positions]
+  (doseq [square positions
+          :let [button (buttons square)]]
+    (.setIcon button
+              (ImageIcon. (.getScaledInstance
+                           (.getImage
+                            (ImageIcon. "resources/images/full-red-circle.png"))
+                           30 30 Image/SCALE_DEFAULT)))))
+
+(defn update-board-buttons [previous-available-positions available-positions]
+  (remove-circles previous-available-positions)
+  (add-circles available-positions))
 
 (defn proba-tabla [board available-positions]
   (doseq [entry buttons
