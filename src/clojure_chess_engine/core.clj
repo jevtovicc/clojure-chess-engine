@@ -5,14 +5,15 @@
   (:import
    (javax.swing UIManager ImageIcon)))
 
-(def initial-board [[:r :n :b :q :k :b :n :r]
-                    [:p :p :p :p :p :p :p :p]
-                    [:e :e :e :e :e :e :e :e]
-                    [:e :e :e :e :e :e :e :e]
-                    [:e :e :e :e :e :e :e :e]
-                    [:e :e :e :e :e :e :e :e]
-                    [:P :P :P :P :P :P :P :P]
-                    [:R :N :B :Q :K :B :N :R]])
+;; Initial board
+(def board (atom [[:r :n :b :q :k :b :n :r]
+                  [:p :p :p :p :p :p :p :p]
+                  [:e :e :e :e :e :e :e :e]
+                  [:e :e :e :e :e :e :e :e]
+                  [:e :e :e :e :e :e :e :e]
+                  [:e :e :e :e :e :e :e :e]
+                  [:P :P :P :P :P :P :P :P]
+                  [:R :N :B :Q :K :B :N :R]]))
 
 (def white-piece? #{:R :N :B :Q :K :P})
 (def black-piece? #{:r :n :b :q :k :p})
@@ -59,6 +60,18 @@
 
 (defn get-piece [board square]
   (get-in board square))
+
+(defn remove-piece [board from-sq]
+  (assoc-in board from-sq :e))
+
+(defn place-piece [board dest-square piece]
+  (assoc-in board dest-square piece))
+
+(defn move-piece [board from-sq to-sq]
+  (let [piece (get-piece board from-sq)]
+    (-> board
+        (remove-piece from-sq)
+        (place-piece to-sq piece))))
 
 (defn square-empty? [board square]
   (= (get-piece board square) :e))
@@ -147,7 +160,7 @@
 (def buttons
   (for [i (range 8)
         j (range 8)
-        :let [piece (get-piece initial-board [i j])]]
+        :let [piece (get-piece @board [i j])]]
     (seesaw/button
      :id (str i "-" j)
      :background (rank-file->square-color i j)
@@ -191,16 +204,24 @@
   (let [id (seesaw/config e :id)
         square (id->square (name id))]
     (cond
-      (and (square-empty? initial-board square)
-           (not= (seesaw/config e :class) :square-legal)) (do (untag-legal-squares)
-                                                              (untag-selected-square))
-      :else (let [legal-moves (get-pseudolegal-destinations initial-board square)]
+      (and (square-empty? @board square)
+           (not (contains? (seesaw/config e :class) "square-legal"))) (do
+                                                                        (println (seesaw/config e :class))
+                                                                        (untag-legal-squares)
+                                                                        (untag-selected-square))
+      (and (square-empty? @board square)
+           (contains? (seesaw/config e :class) "square-legal"))
+      (let [selected-square (first (seesaw/select board-pane [:.square-selected]))]
+        (seesaw/config! e :icon (seesaw/config selected-square :icon))
+        (seesaw/config! selected-square :icon nil)
+        (untag-legal-squares)
+        (untag-selected-square)
+        (swap! board #(move-piece % (id->square (name (seesaw/config selected-square :id))) square)))
+      :else (let [legal-moves (get-pseudolegal-destinations @board square)]
               (untag-legal-squares)
               (untag-selected-square)
               (seesaw/config! e :class :square-selected :border (ssborder/line-border :thickness 4 :color :green))
               (tag-legal-squares legal-moves)))))
-
-(seesaw/select board-pane [:.square-selected])
 
 (defn- main []
   (UIManager/setLookAndFeel (UIManager/getCrossPlatformLookAndFeelClassName))
