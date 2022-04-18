@@ -154,6 +154,43 @@
   [board from-sq]
   (get-squares-in-directions board from-sq all-directions))
 
+(defmethod get-pseudolegal-destinations :p
+  [board from-sq]
+  (let [not-moved? (= (first from-sq) 1)
+        one-up (add-squares dir-up from-sq)
+        two-up (add-squares dir-up one-up)
+        one-up-right (add-squares dir-up-right from-sq)
+        one-up-left (add-squares dir-up-left from-sq)]
+    (cond-> []
+      (square-empty? board one-up) (conj one-up)
+      (and not-moved?
+           (square-empty? board one-up)
+           (square-empty? board two-up)) (conj two-up)
+      (and (not (square-empty? board one-up-left))
+           (not (same-piece-color? :p (get-piece board one-up-left)))) (conj one-up-left)
+      (and (not (square-empty? board one-up-right))
+           (not (same-piece-color? :p (get-piece board one-up-right)))) (conj one-up-right)
+      :always (->> (filter square-on-board?)
+                   set))))
+
+(defmethod get-pseudolegal-destinations :P
+  [board from-sq]
+  (let [not-moved? (= (first from-sq) 6)
+        one-down (add-squares dir-down from-sq)
+        two-down (add-squares dir-down one-down)
+        one-down-right (add-squares dir-down-right from-sq)
+        one-down-left (add-squares dir-down-left from-sq)]
+    (cond-> []
+      (square-empty? board one-down) (conj one-down)
+      (and not-moved?
+           (square-empty? board one-down)
+           (square-empty? board two-down)) (conj two-down)
+      (and (not (square-empty? board one-down-left))
+           (not (same-piece-color? :P (get-piece board one-down-left)))) (conj one-down-left)
+      (and (not (square-empty? board one-down-right))
+           (not (same-piece-color? :P (get-piece board one-down-right)))) (conj one-down-right)
+      :always (->> (filter square-on-board?)))))
+
 (declare handle-click)
 
 (def buttons
@@ -203,18 +240,15 @@
   (let [id (seesaw/config e :id)
         square (id->square (name id))]
     (cond
-      (and (square-empty? @board square)
-           (not (contains? (seesaw/config e :class) "square-legal"))) (do
-                                                                        (println (seesaw/config e :class))
-                                                                        (untag-legal-squares)
-                                                                        (untag-selected-square))
-      (contains? (seesaw/config e :class) "square-legal")
-      (let [selected-square (first (seesaw/select board-pane [:.square-selected]))]
-        (seesaw/config! e :icon (seesaw/config selected-square :icon))
-        (seesaw/config! selected-square :icon nil)
-        (untag-legal-squares)
-        (untag-selected-square)
-        (swap! board #(move-piece % (id->square (name (seesaw/config selected-square :id))) square)))
+      (contains? (seesaw/config e :class) "square-legal") (let [selected-square (first (seesaw/select board-pane [:.square-selected]))]
+                                                            (seesaw/config! e :icon (seesaw/config selected-square :icon))
+                                                            (seesaw/config! selected-square :icon nil)
+                                                            (untag-legal-squares)
+                                                            (untag-selected-square)
+                                                            (swap! board #(move-piece % (id->square (name (seesaw/config selected-square :id))) square)))
+
+      (square-empty? @board square) (do (untag-legal-squares)
+                                        (untag-selected-square))
       :else (let [legal-moves (get-pseudolegal-destinations @board square)]
               (untag-legal-squares)
               (untag-selected-square)
