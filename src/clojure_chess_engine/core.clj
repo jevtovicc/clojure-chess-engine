@@ -1,10 +1,9 @@
-(ns clojure-chess-engine.core
-  (:require [clojure.string :as str])
+(ns spacemacs-clojure.core
+  (:require [seesaw.core :as seesaw]
+            [seesaw.border :as ssborder]
+            [clojure.string :as str])
   (:import
-   (java.awt Dimension GridLayout Color Image)
-   (java.awt.event ActionListener)
-   (javax.swing JFrame JButton JPanel UIManager ImageIcon)
-   (javax.swing.border LineBorder)))
+   (javax.swing UIManager ImageIcon)))
 
 (def initial-board [[:r :n :b :q :k :b :n :r]
                     [:p :p :p :p :p :p :p :p]
@@ -17,10 +16,6 @@
 
 (def white-piece? #{:R :N :B :Q :K :P})
 (def black-piece? #{:r :n :b :q :k :p})
-
-(def brown-color (Color. 0x493323))
-(def white-color (Color. 0xE1BC91))
-(def green-color (Color. 0x7FFFD4))
 
 (defmulti piece->imgsrc identity)
 
@@ -54,6 +49,9 @@
 (def knight-directions [[2 1] [2 -1] [1 2] [1 -2]
                         [-2 1] [-2 -1] [-1 2] [-1 -2]])
 
+(def white-color "#efe7e1")
+(def brown-color "#A27C5B")
+
 (defn rank-file->square-color [rank file]
   (if (zero? (mod (+ rank file) 2))
     white-color
@@ -79,16 +77,8 @@
 (defn same-piece-color? [p1 p2]
   (= (piece-color p1) (piece-color p2)))
 
-(defn str->square [s]
+(defn id->square [s]
   (map #(Integer/parseInt %) (str/split s #"-")))
-
-(defn take-while+
-  [pred coll]
-  (lazy-seq
-   (when-let [[f & r] (seq coll)]
-     (if (pred f)
-       (cons f (take-while+ pred r))
-       [f]))))
 
 (defmulti get-pseudolegal-destinations (fn [board from-sq] (get-piece board from-sq)))
 
@@ -107,6 +97,14 @@
        (filter square-on-board?)
        (remove #(same-piece-color? :N (get-piece board %)))
        #_set))
+
+(defn take-while+
+  [pred coll]
+  (lazy-seq
+   (when-let [[f & r] (seq coll)]
+     (if (pred f)
+       (cons f (take-while+ pred r))
+       [f]))))
 
 (defn get-squares-in-direction [board from-sq dir]
   (let [piece (get-piece board from-sq)]
@@ -144,91 +142,68 @@
   [board from-sq]
   (get-squares-in-directions board from-sq all-directions))
 
-(def last-clicked-button (atom nil))
-(def available-positions (atom #{}))
-
-(declare update-board-buttons)
-
-(defn draw-board [board-pane board-buttons]
-  (doseq [i (range 8)
-          j (range 8)
-          :let [button (board-buttons [i j])]]
-    (.add board-pane button)))
-
-(defn handle-click [e]
-  (let [button (.getSource e)
-        square (str->square (.getName button))]
-    (if (nil? @last-clicked-button)
-      (let [previous-avaialbe-positions @available-positions]
-        (reset! available-positions (get-pseudolegal-destinations initial-board square))
-        (reset! last-clicked-button button)
-        (.setBorder @last-clicked-button (LineBorder. green-color 4))
-        (update-board-buttons previous-avaialbe-positions @available-positions))
-      (if (square-empty? initial-board square)
-        (do
-          (.setBorder @last-clicked-button (LineBorder. nil))
-          (reset! last-clicked-button nil))
-        (let [previous-avaialbe-positions @available-positions]
-          (reset! available-positions (get-pseudolegal-destinations initial-board square))
-          (.setBorder @last-clicked-button (LineBorder. nil))
-          (reset! last-clicked-button button)
-          (.setBorder @last-clicked-button (LineBorder. green-color 4))
-          (update-board-buttons previous-avaialbe-positions @available-positions))))))
+(declare handle-click)
 
 (def buttons
-  (into {} (for [i (range 8)
-                 j (range 8)
-                 :let [square-color (rank-file->square-color i j)]]
-             [[i j] (doto (JButton.)
-                      (.setName (str i "-" j))
-                      (.setBackground square-color)
-                      (.addActionListener (reify ActionListener
-                                            (actionPerformed [this e] (handle-click e)))))])))
+  (for [i (range 8)
+        j (range 8)
+        :let [piece (get-piece initial-board [i j])]]
+    (seesaw/button
+     :id (str i "-" j)
+     :background (rank-file->square-color i j)
+     :icon (ImageIcon. (piece->imgsrc piece))
+     :listen [:action handle-click])))
 
-(defn remove-circles [positions]
-  (doseq [square positions
-          :let [button (buttons square)]]
-    (.setIcon button nil)))
+(def board-pane (seesaw/grid-panel
+                 :rows 8
+                 :columns 8
+                 :items buttons))
 
-(defn add-circles [positions]
-  (doseq [square positions
-          :let [button (buttons square)]]
-    (.setIcon button
-              (ImageIcon. (.getScaledInstance
-                           (.getImage
-                            (ImageIcon. "resources/images/full-red-circle.png"))
-                           30 30 Image/SCALE_DEFAULT)))))
+(def my-frame (seesaw/frame
+               :title "Chess Game"
+               :content board-pane
+               :width 1000
+               :height 700))
 
-(defn update-board-buttons [previous-available-positions available-positions]
-  (remove-circles previous-available-positions)
-  (add-circles available-positions))
+(defn tag-legal-squares [legal-moves]
+  (->> legal-moves
+       (map
+        (fn [square]
+          (let [id (str "#" (str/join "-" square))]
+            (seesaw/select board-pane [(keyword id)]))))
+       (map #(seesaw/config! % :class :square-legal :border (ssborder/line-border :thickness 3 :color :red)))
+       dorun))
 
-(defn proba-tabla [board available-positions]
-  (doseq [entry buttons
-          :let [[i j] (key entry)
-                button (val entry)
-                piece (get-piece board [i j])]]
-    (.setIcon button (ImageIcon.
-                      (if (contains? available-positions [i j])
-                        (.getScaledInstance
-                         (.getImage
-                          (ImageIcon. "resources/images/full-red-circle.png"))
-                         30 30 Image/SCALE_DEFAULT)
-                        (piece->imgsrc piece))))))
+(defn untag-legal-squares []
+  (let [legal-squares (seesaw/select board-pane [:.square-legal])]
+    (dorun (map #(seesaw/config! % :class :square-illegal :border nil) legal-squares))))
+
+(defn untag-selected-square []
+  (let [selected-square (first (seesaw/select board-pane [:.square-selected]))]
+    (seesaw/config! selected-square :class :square-illegal :border nil)))
+
+;; Slucajevi
+;; 1) Ako nije selektovana figura - selektuj figuru (stavi joj klasu :square-selected)
+;; 2) Ako je figura selektovana i kliknuta je figura iste boje - prebaci selektovanu figuru na novu selekciju
+;; 3) Ako je figura selektovana i kliknuto je polje koje nije legalno - ukloni selekciju figure
+;; 4) Ako je figura selektovana i kliknuto je polje koje je legalno - prebaci figuru na to polje
+(defn handle-click [e]
+  (let [id (seesaw/config e :id)
+        square (id->square (name id))]
+    (cond
+      (and (square-empty? initial-board square)
+           (not= (seesaw/config e :class) :square-legal)) (do (untag-legal-squares)
+                                                              (untag-selected-square))
+      :else (let [legal-moves (get-pseudolegal-destinations initial-board square)]
+              (untag-legal-squares)
+              (untag-selected-square)
+              (seesaw/config! e :class :square-selected :border (ssborder/line-border :thickness 4 :color :green))
+              (tag-legal-squares legal-moves)))))
+
+(seesaw/select board-pane [:.square-selected])
 
 (defn- main []
   (UIManager/setLookAndFeel (UIManager/getCrossPlatformLookAndFeelClassName))
-  (let [my-frame (doto (JFrame. "Chess Game")
-                   (.setLocationRelativeTo nil)
-                   (.setSize 1000 700))
-        board-pane (doto (JPanel.)
-                     (.setLayout (GridLayout. 8 8))
-                     (.setPreferredSize (Dimension. 1000 600))
-                     (.setMaximumSize (Dimension. 1000 600)))]
-    (proba-tabla initial-board #{})
-    (draw-board board-pane buttons)
-    (.add my-frame board-pane)
-    (.setVisible my-frame true)))
+  (seesaw/show! my-frame))
 
 (main)
-;; @last-clicked-button
