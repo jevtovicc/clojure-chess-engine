@@ -15,6 +15,11 @@
                   [:P :P :P :P :P :P :P :P]
                   [:R :N :B :Q :K :B :N :R]]))
 
+(def all-squares
+  (for [x (range 8)
+        y (range 8)]
+    [x y]))
+
 (def white-piece? #{:R :N :B :Q :K :P})
 (def black-piece? #{:r :n :b :q :k :p})
 
@@ -76,6 +81,11 @@
 (defn square-empty? [board square]
   (= (get-piece board square) :e))
 
+(def square-occupied? (complement square-empty?))
+
+(defn occupied-squares [board]
+  (filter #(square-occupied? board %) all-squares))
+
 (defn square-on-board? [[rank file]]
   (and (<= 0 rank 7) (<= 0 file 7)))
 
@@ -89,6 +99,16 @@
 
 (defn same-piece-color? [p1 p2]
   (= (piece-color p1) (piece-color p2)))
+
+(defn get-opponent [player]
+  (condp = player
+    :white :black
+    :black :white))
+
+(defn get-players-king [player]
+  (condp = player
+    :white :K
+    :black :k))
 
 (defn id->square [s]
   (map #(Integer/parseInt %) (str/split s #"-")))
@@ -191,6 +211,30 @@
            (not (same-piece-color? :P (get-piece board one-down-right)))) (conj one-down-right)
       :always (->> (filter square-on-board?)))))
 
+
+(defn squares-attacked-by-player [board player]
+  (->> board
+       occupied-squares
+       (filter #(= player (piece-color (get-piece board %))))
+       (remove #(contains? #{:k :K} (get-piece board %)))
+       (mapcat #(get-pseudolegal-destinations board %))
+       distinct))
+
+(defn in-check? [board player]
+  (let [attacked-king (get-players-king player)
+        opponent (get-opponent player)]
+    (as-> (squares-attacked-by-player board opponent) xs
+      (map #(get-piece board %) xs)
+      (set xs)
+      (contains? xs attacked-king))))
+
+(defn in-check-after-move? [board player from-sq to-sq]
+  (in-check? (move-piece board from-sq to-sq) player))
+
+(defn get-legal-destinations [board player from-sq]
+  (->> (get-pseudolegal-destinations board from-sq)
+       (remove #(in-check-after-move? board player from-sq %))))
+
 (declare handle-click)
 
 (def buttons
@@ -246,10 +290,9 @@
                                                             (untag-legal-squares)
                                                             (untag-selected-square)
                                                             (swap! board #(move-piece % (id->square (name (seesaw/config selected-square :id))) square)))
-
       (square-empty? @board square) (do (untag-legal-squares)
                                         (untag-selected-square))
-      :else (let [legal-moves (get-pseudolegal-destinations @board square)]
+      :else (let [legal-moves (get-legal-destinations @board :black square)]
               (untag-legal-squares)
               (untag-selected-square)
               (seesaw/config! e :class :square-selected :border (ssborder/line-border :thickness 4 :color :green))
