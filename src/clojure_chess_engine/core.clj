@@ -123,10 +123,11 @@
   (let [piece (get-piece board from-sq)]
     (->> (add-squares from-sq dir)
          (iterate #(add-squares % dir))
-         (split-with #(square-empty? board %))
          (take-while+ #(square-empty? board %))
          (filter square-on-board?)
          (remove #(same-piece-color? piece (get-piece board %))))))
+
+@board
 
 (defn get-squares-in-directions [board from-sq dirs]
   (mapcat #(get-squares-in-direction board from-sq %) dirs))
