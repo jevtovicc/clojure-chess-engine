@@ -127,8 +127,6 @@
          (filter square-on-board?)
          (remove #(same-piece-color? piece (get-piece board %))))))
 
-@board
-
 (defn get-squares-in-directions [board from-sq dirs]
   (mapcat #(get-squares-in-direction board from-sq %) dirs))
 
@@ -210,8 +208,7 @@
                                                                         (println (seesaw/config e :class))
                                                                         (untag-legal-squares)
                                                                         (untag-selected-square))
-      (and (square-empty? @board square)
-           (contains? (seesaw/config e :class) "square-legal"))
+      (contains? (seesaw/config e :class) "square-legal")
       (let [selected-square (first (seesaw/select board-pane [:.square-selected]))]
         (seesaw/config! e :icon (seesaw/config selected-square :icon))
         (seesaw/config! selected-square :icon nil)
