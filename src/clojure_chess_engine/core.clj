@@ -283,7 +283,7 @@
 
 (declare handle-click)
 
-(def buttons
+(defn generate-starting-buttons []
   (for [i (range 8)
         j (range 8)
         :let [piece (get-piece (:board @game-state) [i j])]]
@@ -293,10 +293,11 @@
      :icon (ImageIcon. (piece->imgsrc piece))
      :listen [:action handle-click])))
 
+
 (def board-pane (seesaw/grid-panel
                  :rows 8
                  :columns 8
-                 :items buttons))
+                 :items (generate-starting-buttons)))
 
 (def my-frame (seesaw/frame
                :title "Chess Game"
@@ -326,6 +327,14 @@
     :white :black
     :black :white))
 
+
+(defn reset-game-state []
+  (reset! game-state starting-game-state))
+
+(defn reset-game []
+  (reset-game-state)
+  (seesaw/config! board-pane :items (generate-starting-buttons)))
+
 ;; Slucajevi
 ;; 1) Ako nije selektovana figura - selektuj figuru (stavi joj klasu :square-selected)
 ;; 2) Ako je figura selektovana i kliknuta je figura iste boje - prebaci selektovanu figuru na novu selekciju
@@ -343,7 +352,8 @@
                                                             (swap! game-state #(assoc % :board (move-piece (:board %) (id->square (name (seesaw/config selected-square :id))) square) :player-on-move (switch-player (:player-on-move %))))
                                                             (when (check-mate? (:board @game-state) (:player-on-move @game-state))
                                                               (println "Check mate")
-                                                              (seesaw/alert "Game over!")))
+                                                              (seesaw/alert "Game over!")
+                                                              (reset-game)))
       (square-empty? (:board @game-state) square) (do (untag-legal-squares)
                                                       (untag-selected-square))
       :else (let [legal-moves (get-legal-destinations (:board @game-state) (:player-on-move @game-state) square)]
