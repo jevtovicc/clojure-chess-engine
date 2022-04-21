@@ -5,18 +5,40 @@
   (:import
    (javax.swing UIManager ImageIcon)))
 
-;; Initial board
-(def initial-board [[:r :n :b :q :k :b :n :r]
-                    [:p :p :p :p :p :p :p :p]
-                    [:e :e :e :e :e :e :e :e]
-                    [:e :e :e :e :e :e :e :e]
-                    [:e :e :e :e :e :e :e :e]
-                    [:e :e :e :e :e :e :e :e]
-                    [:P :P :P :P :P :P :P :P]
-                    [:R :N :B :Q :K :B :N :R]])
+(defn parse-row [row]
+  (reduce
+   (fn [acc ch]
+     (if (Character/isDigit ch)
+       (let [num (Character/digit ch 10)]
+         (into acc (repeat num :e)))
+       (conj acc (keyword (str ch)))))
+   []
+   row))
 
-(def game-state (atom {:board initial-board
-                       :player-on-move :white}))
+(defn parse->board [fen]
+  (-> fen
+      (str/split #" ")
+      first
+      (str/split #"/")
+      (as-> res
+          (mapv parse-row res))))
+
+(defn parse-player [fen]
+  (let [player (second (str/split fen #" "))]
+    (condp = player
+      "w" :white
+      "b" :black)))
+
+(defn fen->game-state [fen]
+  (let [board (parse->board fen)
+        player (parse-player fen)]
+    {:board board
+     :player-on-move player}))
+
+(def starting-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq")
+(def starting-game-state (fen->game-state starting-fen))
+
+(def game-state (atom starting-game-state))
 
 (def all-squares
   (for [x (range 8)
