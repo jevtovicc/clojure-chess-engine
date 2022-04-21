@@ -6,14 +6,17 @@
    (javax.swing UIManager ImageIcon)))
 
 ;; Initial board
-(def board (atom [[:r :n :b :q :k :b :n :r]
-                  [:p :p :p :p :p :p :p :p]
-                  [:e :e :e :e :e :e :e :e]
-                  [:e :e :e :e :e :e :e :e]
-                  [:e :e :e :e :e :e :e :e]
-                  [:e :e :e :e :e :e :e :e]
-                  [:P :P :P :P :P :P :P :P]
-                  [:R :N :B :Q :K :B :N :R]]))
+(def initial-board [[:r :n :b :q :k :b :n :r]
+                    [:p :p :p :p :p :p :p :p]
+                    [:e :e :e :e :e :e :e :e]
+                    [:e :e :e :e :e :e :e :e]
+                    [:e :e :e :e :e :e :e :e]
+                    [:e :e :e :e :e :e :e :e]
+                    [:P :P :P :P :P :P :P :P]
+                    [:R :N :B :Q :K :B :N :R]])
+
+(def game-state (atom {:board initial-board
+                       :player-on-move :white}))
 
 (def all-squares
   (for [x (range 8)
@@ -211,6 +214,19 @@
            (not (same-piece-color? :P (get-piece board one-down-right)))) (conj one-down-right)
       :always (->> (filter square-on-board?)))))
 
+(defmethod get-pseudolegal-destinations :k
+  [board from-sq]
+  (->> all-directions
+       (map #(add-squares from-sq %))
+       (filter square-on-board?)
+       (remove #(same-piece-color? :k (get-piece board %)))))
+
+(defmethod get-pseudolegal-destinations :K
+  [board from-sq]
+  (->> all-directions
+       (map #(add-squares from-sq %))
+       (filter square-on-board?)
+       (remove #(same-piece-color? :K (get-piece board %)))))
 
 (defn squares-attacked-by-player [board player]
   (->> board
@@ -235,12 +251,20 @@
   (->> (get-pseudolegal-destinations board from-sq)
        (remove #(in-check-after-move? board player from-sq %))))
 
+(defn check-mate? [board player]
+  (->> board
+       occupied-squares
+       (filter #(= (piece-color (get-piece board %)) player))
+       (mapcat #(get-legal-destinations board player %))
+       distinct
+       empty?))
+
 (declare handle-click)
 
 (def buttons
   (for [i (range 8)
         j (range 8)
-        :let [piece (get-piece @board [i j])]]
+        :let [piece (get-piece (:board @game-state) [i j])]]
     (seesaw/button
      :id (str i "-" j)
      :background (rank-file->square-color i j)
@@ -275,6 +299,11 @@
   (let [selected-square (first (seesaw/select board-pane [:.square-selected]))]
     (seesaw/config! selected-square :class :square-illegal :border nil)))
 
+(defn switch-player [player]
+  (condp = player
+    :white :black
+    :black :white))
+
 ;; Slucajevi
 ;; 1) Ako nije selektovana figura - selektuj figuru (stavi joj klasu :square-selected)
 ;; 2) Ako je figura selektovana i kliknuta je figura iste boje - prebaci selektovanu figuru na novu selekciju
@@ -289,10 +318,13 @@
                                                             (seesaw/config! selected-square :icon nil)
                                                             (untag-legal-squares)
                                                             (untag-selected-square)
-                                                            (swap! board #(move-piece % (id->square (name (seesaw/config selected-square :id))) square)))
-      (square-empty? @board square) (do (untag-legal-squares)
-                                        (untag-selected-square))
-      :else (let [legal-moves (get-legal-destinations @board :black square)]
+                                                            (swap! game-state #(assoc % :board (move-piece (:board %) (id->square (name (seesaw/config selected-square :id))) square) :player-on-move (switch-player (:player-on-move %))))
+                                                            (when (check-mate? (:board @game-state) (:player-on-move @game-state))
+                                                              (println "Check mate")
+                                                              (seesaw/alert "Game over!")))
+      (square-empty? (:board @game-state) square) (do (untag-legal-squares)
+                                                      (untag-selected-square))
+      :else (let [legal-moves (get-legal-destinations (:board @game-state) (:player-on-move @game-state) square)]
               (untag-legal-squares)
               (untag-selected-square)
               (seesaw/config! e :class :square-selected :border (ssborder/line-border :thickness 4 :color :green))
