@@ -21,7 +21,7 @@
       first
       (str/split #"/")
       (as-> res
-          (mapv parse-row res))))
+            (mapv parse-row res))))
 
 (defn parse-player [fen]
   (let [player (second (str/split fen #" "))]
@@ -293,7 +293,6 @@
      :icon (ImageIcon. (piece->imgsrc piece))
      :listen [:action handle-click])))
 
-
 (def board-pane (seesaw/grid-panel
                  :rows 8
                  :columns 8
@@ -327,13 +326,47 @@
     :white :black
     :black :white))
 
-
 (defn reset-game-state []
   (reset! game-state starting-game-state))
 
 (defn reset-game []
   (reset-game-state)
   (seesaw/config! board-pane :items (generate-starting-buttons)))
+
+
+(defn possible-moves [board player]
+  (->> all-squares
+       (filter #(= (piece-color (get-piece board %)) player))
+       (reduce
+        (fn [acc square]
+          (assoc acc square (get-legal-destinations board player square)))
+        {})
+       (remove (fn [move] (empty? (val move))))
+       (into {})))
+
+
+(defn disable-buttons []
+  (dorun (map #(seesaw/config! % :enabled? false) (seesaw/select board-pane [:JButton]))))
+
+(defn enable-buttons []
+  (dorun (map #(seesaw/config! % :enabled? true) (seesaw/select board-pane [:JButton]))))
+
+(defn square->seesawid [square]
+  (->> square
+       (str/join "-")
+       (str "#")
+       keyword))
+
+(defn generate-random-move []
+  (let [moves (possible-moves (:board @game-state) :black)
+        from-sq (rand-nth (keys moves))
+        to-sq (rand-nth (moves from-sq))
+        src-button (seesaw/select board-pane [(square->seesawid from-sq)])
+        dest-button (seesaw/select board-pane [(square->seesawid to-sq)])]
+    (seesaw/config! dest-button :icon (seesaw/config src-button :icon))
+    (seesaw/config! src-button :icon nil)
+    (swap! game-state #(assoc % :board (move-piece (:board %) from-sq to-sq) :player-on-move (switch-player (:player-on-move %))))))
+
 
 ;; Slucajevi
 ;; 1) Ako nije selektovana figura - selektuj figuru (stavi joj klasu :square-selected)
@@ -350,10 +383,11 @@
                                                             (untag-legal-squares)
                                                             (untag-selected-square)
                                                             (swap! game-state #(assoc % :board (move-piece (:board %) (id->square (name (seesaw/config selected-square :id))) square) :player-on-move (switch-player (:player-on-move %))))
-                                                            (when (check-mate? (:board @game-state) (:player-on-move @game-state))
-                                                              (println "Check mate")
-                                                              (seesaw/alert "Game over!")
-                                                              (reset-game)))
+                                                            (if (check-mate? (:board @game-state) (:player-on-move @game-state))
+                                                              (do
+                                                                (seesaw/alert "Game over!")
+                                                                (reset-game))
+                                                              (generate-random-move)))
       (square-empty? (:board @game-state) square) (do (untag-legal-squares)
                                                       (untag-selected-square))
       :else (let [legal-moves (get-legal-destinations (:board @game-state) (:player-on-move @game-state) square)]
