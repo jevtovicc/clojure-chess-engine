@@ -33,18 +33,24 @@
   (fn [game-state from-sq] (board/get-piece (:board game-state) from-sq)))
 
 (defmethod get-pseudolegal-destinations :n
-  [{board :board} from-sq]
+  [{board :board :as game-state} from-sq]
   (->> knight-directions
        (map #(board/add-squares from-sq %))
        (filter board/square-on-board?)
-       (remove #(pieces/same-piece-color? :n (board/get-piece board %)))))
+       (remove #(pieces/same-piece-color? :n (board/get-piece board %)))
+       #_(map #(let [board' (board/move-piece board from-sq %)
+                   next-player (flip-player (:player-on-move game-state))]
+               (assoc game-state :board board' :player-on-move next-player)))))
 
 (defmethod get-pseudolegal-destinations :N
-  [{board :board} from-sq]
+  [{board :board :as game-state} from-sq]
   (->> knight-directions
        (map #(board/add-squares from-sq %))
        (filter board/square-on-board?)
-       (remove #(pieces/same-piece-color? :N (board/get-piece board %)))))
+       (remove #(pieces/same-piece-color? :N (board/get-piece board %)))
+       #_(map #(let [board' (board/move-piece board from-sq %)
+                   next-player (flip-player (:player-on-move game-state))]
+               (assoc game-state :board board' :player-on-move next-player)))))
 
 (defn get-squares-in-direction [board from-sq dir]
   (let [piece (board/get-piece board from-sq)]
@@ -58,31 +64,81 @@
   (mapcat #(get-squares-in-direction board from-sq %) dirs))
 
 (defmethod get-pseudolegal-destinations :r
-  [{board :board} from-sq]
-  (get-squares-in-directions board from-sq rook-directions))
+  [{board :board :as game-state} from-sq]
+  (let [legal-squares (get-squares-in-directions board from-sq rook-directions)]
+    legal-squares
+    #_(map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player (:player-on-move game-state))]
+            (assoc game-state
+                   :board board'
+                   :player-on-move next-player
+                   :black-can-castle-ks? (if (or (= from-sq [0 7])
+                                                 (= (:black-can-castle-ks? game-state) false))
+                                           false
+                                           true)
+                   :black-can-castle-qs? (if (or (= from-sq [0 0])
+                                                 (= (:black-can-castle-qs? game-state) false))
+                                           false
+                                           true)))
+         legal-squares)))
 
 (defmethod get-pseudolegal-destinations :R
-  [{board :board} from-sq]
-  (get-squares-in-directions board from-sq rook-directions))
+  [{board :board :as game-state} from-sq]
+  (let [legal-squares (get-squares-in-directions board from-sq rook-directions)]
+    legal-squares
+    #_(map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player (:player-on-move game-state))]
+            (assoc game-state
+                   :board board'
+                   :player-on-move next-player
+                   :white-can-castle-ks? (if (or (= from-sq [7 7])
+                                                 (= (:white-can-castle-ks? game-state) false))
+                                           false
+                                           true)
+                   :white-can-castle-qs? (if (or (= from-sq [7 0])
+                                                 (= (:white-can-castle-qs? game-state) false))
+                                           false
+                                           true)))
+         legal-squares)))
 
 (defmethod get-pseudolegal-destinations :b
-  [{board :board} from-sq]
-  (get-squares-in-directions board from-sq bishop-directions))
+  [{board :board :as game-state} from-sq]
+  (let [legal-squares (get-squares-in-directions board from-sq bishop-directions)]
+    legal-squares
+    #_(map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player (:player-on-move game-state))]
+            (assoc game-state :board board' :player-on-move next-player))
+         legal-squares)))
 
 (defmethod get-pseudolegal-destinations :B
-  [{board :board} from-sq]
-  (get-squares-in-directions board from-sq bishop-directions))
+  [{board :board :as game-state} from-sq]
+  (let [legal-squares (get-squares-in-directions board from-sq bishop-directions)]
+    legal-squares
+    #_(map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player (:player-on-move game-state))]
+            (assoc game-state :board board' :player-on-move next-player))
+         legal-squares)))
 
 (defmethod get-pseudolegal-destinations :q
-  [{board :board} from-sq]
-  (get-squares-in-directions board from-sq all-directions))
+  [{board :board :as game-state} from-sq]
+  (let [legal-squares (get-squares-in-directions board from-sq all-directions)]
+    legal-squares
+    #_(map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player (:player-on-move game-state))]
+            (assoc game-state :board board' :player-on-move next-player))
+         legal-squares)))
 
 (defmethod get-pseudolegal-destinations :Q
-  [{board :board} from-sq]
-  (get-squares-in-directions board from-sq all-directions))
+  [{board :board :as game-state} from-sq]
+  (let [legal-squares (get-squares-in-directions board from-sq all-directions)]
+    legal-squares
+    #_(map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player (:player-on-move game-state))]
+            (assoc game-state :board board' :player-on-move next-player))
+         legal-squares)))
 
 (defmethod get-pseudolegal-destinations :p
-  [{board :board} from-sq]
+  [{board :board :as game-state} from-sq]
   (let [not-moved? (= (first from-sq) 1)
         one-up (board/add-squares dir-up from-sq)
         two-up (board/add-squares dir-up one-up)
@@ -98,10 +154,12 @@
       (and (not (board/square-empty? board one-up-right))
            (not (pieces/same-piece-color? :p (board/get-piece board one-up-right)))) (conj one-up-right)
       :always (->> (filter board/square-on-board?)
-                   set))))
+                   #_(map #(let [board' (board/move-piece board from-sq %)
+                               next-player (flip-player (:player-on-move game-state))]
+                           (assoc game-state :board board' :player-on-move next-player)))))))
 
 (defmethod get-pseudolegal-destinations :P
-  [{board :board} from-sq]
+  [{board :board :as game-state} from-sq]
   (let [not-moved? (= (first from-sq) 6)
         one-down (board/add-squares dir-down from-sq)
         two-down (board/add-squares dir-down one-down)
@@ -116,7 +174,10 @@
            (not (pieces/same-piece-color? :P (board/get-piece board one-down-left)))) (conj one-down-left)
       (and (not (board/square-empty? board one-down-right))
            (not (pieces/same-piece-color? :P (board/get-piece board one-down-right)))) (conj one-down-right)
-      :always (->> (filter board/square-on-board?)))))
+      :always (->> (filter board/square-on-board?)
+                   #_(map #(let [board' (board/move-piece board from-sq %)
+                               next-player (flip-player (:player-on-move game-state))]
+                           (assoc game-state :board board' :player-on-move next-player)))))))
 
 (declare squares-attacked-by-player)
 (declare in-check?)
@@ -152,7 +213,14 @@
              (->> all-directions
                   (map #(board/add-squares from-sq %))
                   (filter board/square-on-board?)
-                  (remove #(pieces/same-piece-color? :k (board/get-piece board %)))))))
+                  (remove #(pieces/same-piece-color? :k (board/get-piece board %)))
+                  #_(map #(let [board' (board/move-piece board from-sq %)
+                              next-player (flip-player (:player-on-move game-state))]
+                          (assoc game-state
+                                 :board board'
+                                 :player-on-move next-player
+                                 :black-can-castle-ks? false
+                                 :black-can-castle-qs? false)))))))
 
 (defmethod get-pseudolegal-destinations :K
   [{:keys [board white-can-castle-ks? white-can-castle-qs?] :as game-state} from-sq]
@@ -163,7 +231,14 @@
              (->> all-directions
                   (map #(board/add-squares from-sq %))
                   (filter board/square-on-board?)
-                  (remove #(pieces/same-piece-color? :K (board/get-piece board %)))))))
+                  (remove #(pieces/same-piece-color? :K (board/get-piece board %)))
+                  #_(map #(let [board' (board/move-piece board from-sq %)
+                              next-player (flip-player (:player-on-move game-state))]
+                          (assoc game-state
+                                 :board board'
+                                 :player-on-move next-player
+                                 :white-can-castle-ks? false
+                                 :white-can-castle-qs? false)))))))
 
 (defn squares-attacked-by-player [{board :board :as game-state} player]
   (->> board
@@ -195,3 +270,82 @@
        (mapcat #(get-legal-destinations game-state %))
        distinct
        empty?))
+
+(defn possible-moves [{:keys [board player-on-move] :as game-state}]
+  (->> board/all-squares
+       (filter #(= (pieces/piece-color (board/get-piece board %)) player-on-move))
+       (reduce
+        (fn [acc square]
+          (assoc acc square (get-legal-destinations game-state square)))
+        {})
+       (remove (fn [move] (empty? (val move))))
+       (into {})))
+
+(defn make-move [{:keys [board player-on-move] :as game-state} from-sq to-sq]
+  (let [board' (board/move-piece board from-sq to-sq)
+        next-player (flip-player player-on-move)]
+    (assoc game-state
+           :board (cond
+                    (and (= (board/get-piece board from-sq) :k)
+                         (= from-sq [0 4])
+                         (= to-sq [0 1])) (board/move-piece board' [0 0] [0 2])
+                    (and (= (board/get-piece board from-sq) :k)
+                         (= from-sq [0 4])
+                         (= to-sq [0 6])) (board/move-piece board' [0 7] [0 5])
+                    (and (= (board/get-piece board from-sq) :K)
+                         (= from-sq [7 4])
+                         (= to-sq [7 1])) (board/move-piece board' [7 0] [7 2])
+                    (and (= (board/get-piece board from-sq) :K)
+                         (= from-sq [7 4])
+                         (= to-sq [7 6])) (board/move-piece board' [7 7] [7 5])
+                    :else board')
+           :player-on-move next-player
+           :white-can-castle-ks? (if (or (= (:white-can-castle-ks? game-state) false)
+                                         (= from-sq [7 4])
+                                         (= from-sq [7 7]))
+                                   false
+                                   true)
+           :white-can-castle-qs? (if (or (= (:white-can-castle-qs? game-state) false)
+                                         (= from-sq [7 4])
+                                         (= from-sq [7 0]))
+                                   false
+                                   true)
+           :black-can-castle-ks? (if (or (= (:black-can-castle-ks? game-state) false)
+                                         (= from-sq [0 4])
+                                         (= from-sq [0 7]))
+                                   false
+                                   true)
+           :black-can-castle-qs? (if (or (= (:black-can-castle-qs? game-state) false)
+                                         (= from-sq [0 4])
+                                         (= from-sq [0 0]))
+                                   false
+                                   true))))
+
+(defn get-legal-states [{:keys [board player-on-move] :as game-state} from-sq]
+  (let [legal-moves (get-legal-destinations game-state from-sq)]
+    (map #(let [board' (board/move-piece board from-sq %)
+                next-player (flip-player player-on-move)]
+            (assoc game-state
+                   :board board'
+                   :player-on-move next-player
+                   :white-can-castle-ks? (if (or (= (:white-can-castle-ks? game-state) false)
+                                                 (= from-sq [7 4])
+                                                 (= from-sq [7 7]))
+                                           false
+                                           true)
+                   :white-can-castle-qs? (if (or (= (:white-can-castle-qs? game-state) false)
+                                                 (= from-sq [7 4])
+                                                 (= from-sq [7 0]))
+                                           false
+                                           true)
+                   :black-can-castle-ks? (if (or (= (:black-can-castle-ks? game-state) false)
+                                                 (= from-sq [0 4])
+                                                 (= from-sq [0 7]))
+                                           false
+                                           true)
+                   :black-can-castle-qs? (if (or (= (:black-can-castle-qs? game-state) false)
+                                                 (= from-sq [0 4])
+                                                 (= from-sq [0 0]))
+                                           false
+                                           true)))
+         legal-moves)))
