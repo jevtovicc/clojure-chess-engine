@@ -1,50 +1,13 @@
-(ns spacemacs-clojure.core
+(ns clojure-chess-engine.core
   (:require [seesaw.core :as seesaw]
             [seesaw.border :as ssborder]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure-chess-engine.fen-parser :as parser])
   (:import
    (javax.swing UIManager ImageIcon)))
 
-(defn parse-row [row]
-  (reduce
-   (fn [acc ch]
-     (if (Character/isDigit ch)
-       (let [num (Character/digit ch 10)]
-         (into acc (repeat num :e)))
-       (conj acc (keyword (str ch)))))
-   []
-   row))
-
-(defn parse->board [fen]
-  (-> fen
-      (str/split #" ")
-      first
-      (str/split #"/")
-      (as-> res
-            (mapv parse-row res))))
-
-(defn parse-player [fen]
-  (let [player (second (str/split fen #" "))]
-    (condp = player
-      "w" :white
-      "b" :black)))
-
-(defn parse-castling [fen]
-  (last (str/split fen #" ")))
-
-(defn fen->game-state [fen]
-  (let [board (parse->board fen)
-        player (parse-player fen)
-        castling-info (parse-castling fen)]
-    {:board board
-     :player-on-move player
-     :white-can-castle-ks? (str/includes? castling-info "K")
-     :white-can-castle-qs? (str/includes? castling-info "Q")
-     :black-can-castle-ks? (str/includes? castling-info "k")
-     :black-can-castle-qs? (str/includes? castling-info "q")}))
-
 (def starting-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq")
-(def starting-game-state (fen->game-state starting-fen))
+(def starting-game-state (parser/fen->game-state starting-fen))
 
 (def game-state (atom starting-game-state))
 
