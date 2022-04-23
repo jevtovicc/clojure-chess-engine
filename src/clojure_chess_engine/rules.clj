@@ -298,6 +298,10 @@
                     (and (= (board/get-piece board from-sq) :K)
                          (= from-sq [7 4])
                          (= to-sq [7 6])) (board/move-piece board' [7 7] [7 5])
+                    (and (= (board/get-piece board from-sq) :p)
+                         (= (first to-sq) 7)) (board/place-piece board' to-sq :q)
+                    (and (= (board/get-piece board from-sq) :P)
+                         (= (first to-sq) 0)) (board/place-piece board' to-sq :Q)
                     :else board')
            :player-on-move next-player
            :white-can-castle-ks? (if (or (= (:white-can-castle-ks? game-state) false)
