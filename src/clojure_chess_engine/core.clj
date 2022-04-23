@@ -121,7 +121,10 @@
                                                                 (seesaw/alert "Game over!")
                                                                 (reset-game))
                                                               (do (swap! game-state make-ai-move)
-                                                                  (draw-board (:board @game-state)))))
+                                                                  (draw-board (:board @game-state))
+                                                                  (when (rules/check-mate? @game-state)
+                                                                    (seesaw/alert "Game over!")
+                                                                    (reset-game)))))
       (board/square-empty? (:board @game-state) square) (do (untag-legal-squares)
                                                             (untag-selected-square))
       :else (let [legal-moves (rules/get-legal-destinations @game-state square)]

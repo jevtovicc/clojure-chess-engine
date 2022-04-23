@@ -18,6 +18,8 @@
 (defmethod get-piece-value :K [_] 900)
 (defmethod get-piece-value :e [_] 0)
 
+(def num-of-eval-positions (atom 0))
+
 (defn evaluate-board [board]
   (reduce
    (fn [total-score square] (+ total-score (get-piece-value (board/get-piece board square))))
@@ -26,26 +28,40 @@
 
 (declare minimax-max)
 
-(defn minimax-min [game-state depth]
-  (if (zero? depth)
-    [(evaluate-board (:board game-state)) nil]
-    (loop [[move & moves] (rules/possible-moves game-state)
-           best-score 9999
-           best-move nil]
-      (if (nil? move)
-        [best-score best-move]
-        (let [[from-sq to-sq] move
-              [score _] (minimax-max (rules/make-move game-state from-sq to-sq) (dec depth))]
-          (recur moves (min best-score score) (if (< score best-score) move best-move)))))))
+(defn minimax-min
+  ([game-state depth] (minimax-min game-state depth -9999 9999))
+  ([game-state depth alpha beta]
+   (if (zero? depth)
+     [(evaluate-board (:board game-state)) nil]
+     (loop [[move & moves] (rules/possible-moves game-state)
+            best-score 9999
+            best-move nil
+            alpha alpha
+            beta beta]
+       (if (nil? move)
+         [best-score best-move]
+         (let [[from-sq to-sq] move
+               [score _] (minimax-max (rules/make-move game-state from-sq to-sq) (dec depth) alpha beta)
+               best-move (if (< score best-score) move best-move)
+               best-score (min best-score score)]
+           (if (<= best-score alpha)
+             [best-score best-move]
+             (recur moves best-score best-move alpha (min beta best-score)))))))))
 
-(defn minimax-max [game-state depth]
+(defn minimax-max [game-state depth alpha beta]
   (if (zero? depth)
     [(evaluate-board (:board game-state)) nil]
     (loop [[move & moves] (rules/possible-moves game-state)
            best-score -9999
-           best-move nil]
+           best-move nil
+           alpha alpha
+           beta beta]
       (if (nil? move)
         [best-score best-move]
         (let [[from-sq to-sq] move
-              [score _] (minimax-min (rules/make-move game-state from-sq to-sq) (dec depth))]
-          (recur moves (max best-score score) (if (> score best-score) move best-move)))))))
+              [score _] (minimax-min (rules/make-move game-state from-sq to-sq) (dec depth) alpha beta)
+              best-move (if (> score best-score) move best-move)
+              best-score (max score best-score)]
+          (if (>= best-score beta)
+            [best-score best-move]
+            (recur moves best-score best-move (max best-score alpha) beta)))))))
