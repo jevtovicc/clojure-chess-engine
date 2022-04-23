@@ -271,15 +271,11 @@
        distinct
        empty?))
 
+
 (defn possible-moves [{:keys [board player-on-move] :as game-state}]
   (->> board/all-squares
        (filter #(= (pieces/piece-color (board/get-piece board %)) player-on-move))
-       (reduce
-        (fn [acc square]
-          (assoc acc square (get-legal-destinations game-state square)))
-        {})
-       (remove (fn [move] (empty? (val move))))
-       (into {})))
+       (mapcat (fn [from-sq] (map (fn [to-sq] [from-sq to-sq]) (get-legal-destinations game-state from-sq))))))
 
 (defn make-move [{:keys [board player-on-move] :as game-state} from-sq to-sq]
   (let [board' (board/move-piece board from-sq to-sq)

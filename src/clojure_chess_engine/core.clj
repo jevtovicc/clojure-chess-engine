@@ -5,7 +5,8 @@
             [clojure-chess-engine.fen-parser :as parser]
             [clojure-chess-engine.board :as board]
             [clojure-chess-engine.pieces :as pieces]
-            [clojure-chess-engine.rules :as rules])
+            [clojure-chess-engine.rules :as rules]
+            [clojure-chess-engine.ai :as ai])
   (:import
    (javax.swing UIManager ImageIcon)))
 
@@ -94,10 +95,13 @@
 
 (defn make-random-move [game-state]
   (let [moves (rules/possible-moves game-state)
-        from-sq (rand-nth (keys moves))
-        to-sq (rand-nth (moves from-sq))]
+        [from-sq to-sq] (rand-nth moves)]
     (rules/make-move game-state from-sq to-sq)))
 
+(defn make-ai-move [game-state]
+  (let [[_ best-move] (ai/minimax-min game-state 3)
+        [from-sq to-sq] best-move]
+    (rules/make-move game-state from-sq to-sq)))
 
 ;; Slucajevi
 ;; 1) Ako nije selektovana figura - selektuj figuru (stavi joj klasu :square-selected)
@@ -116,7 +120,7 @@
                                                               (do
                                                                 (seesaw/alert "Game over!")
                                                                 (reset-game))
-                                                              (do (swap! game-state make-random-move)
+                                                              (do (swap! game-state make-ai-move)
                                                                   (draw-board (:board @game-state)))))
       (board/square-empty? (:board @game-state) square) (do (untag-legal-squares)
                                                             (untag-selected-square))
