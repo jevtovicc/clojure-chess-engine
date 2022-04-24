@@ -244,7 +244,6 @@
   (->> board
        board/occupied-squares
        (filter #(= player (pieces/piece-color (board/get-piece board %))))
-       (remove #(contains? #{:k :K} (board/get-piece board %)))
        (mapcat #(get-pseudolegal-destinations game-state %))
        distinct))
 
