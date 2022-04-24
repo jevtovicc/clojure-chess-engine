@@ -2,27 +2,92 @@
   (:require [clojure-chess-engine.rules :as rules]
             [clojure-chess-engine.board :as board]))
 
-(defmulti get-piece-value identity)
+(def white-eval-table
+  {:p [[0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0]
+       [5.0  5.0  5.0  5.0  5.0  5.0  5.0  5.0]
+       [1.0  1.0  2.0  3.0  3.0  2.0  1.0  1.0]
+       [0.5  0.5  1.0  2.5  2.5  1.0  0.5  0.5]
+       [0.0  0.0  0.0  2.0  2.0  0.0  0.0  0.0]
+       [0.5 -0.5 -1.0  0.0  0.0 -1.0 -0.5  0.5]
+       [0.5  1.0 1.0  -2.0 -2.0  1.0  1.0  0.5]
+       [0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0]]
 
-(defmethod get-piece-value :p [_] -10)
-(defmethod get-piece-value :P [_] 10)
-(defmethod get-piece-value :b [_] -30)
-(defmethod get-piece-value :B [_] 30)
-(defmethod get-piece-value :n [_] -30)
-(defmethod get-piece-value :N [_] 30)
-(defmethod get-piece-value :r [_] -50)
-(defmethod get-piece-value :R [_] 50)
-(defmethod get-piece-value :q [_] -90)
-(defmethod get-piece-value :Q [_] 90)
-(defmethod get-piece-value :k [_] -900)
-(defmethod get-piece-value :K [_] 900)
-(defmethod get-piece-value :e [_] 0)
+   :n [[-5.0 -4.0 -3.0 -3.0 -3.0 -3.0 -4.0 -5.0]
+       [-4.0 -2.0  0.0  0.0  0.0  0.0 -2.0 -4.0]
+       [-3.0  0.0  1.0  1.5  1.5  1.0  0.0 -3.0]
+       [-3.0  0.5  1.5  2.0  2.0  1.5  0.5 -3.0]
+       [-3.0  0.0  1.5  2.0  2.0  1.5  0.0 -3.0]
+       [-3.0  0.5  1.0  1.5  1.5  1.0  0.5 -3.0]
+       [-4.0 -2.0  0.0  0.5  0.5  0.0 -2.0 -4.0]
+       [-5.0 -4.0 -3.0 -3.0 -3.0 -3.0 -4.0 -5.0]]
 
-(def num-of-eval-positions (atom 0))
+   :b [[-2.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -2.0]
+       [-1.0  0.0  0.0  0.0  0.0  0.0  0.0 -1.0]
+       [-1.0  0.0  0.5  1.0  1.0  0.5  0.0 -1.0]
+       [-1.0  0.5  0.5  1.0  1.0  0.5  0.5 -1.0]
+       [-1.0  0.0  1.0  1.0  1.0  1.0  0.0 -1.0]
+       [-1.0  1.0  1.0  1.0  1.0  1.0  1.0 -1.0]
+       [-1.0  0.5  0.0  0.0  0.0  0.0  0.5 -1.0]
+       [-2.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -2.0]]
+
+   :r [[0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0]
+       [0.5  1.0  1.0  1.0  1.0  1.0  1.0  0.5]
+       [-0.5  0.0  0.0  0.0  0.0  0.0  0.0 -0.5]
+       [-0.5  0.0  0.0  0.0  0.0  0.0  0.0 -0.5]
+       [-0.5  0.0  0.0  0.0  0.0  0.0  0.0 -0.5]
+       [-0.5  0.0  0.0  0.0  0.0  0.0  0.0 -0.5]
+       [-0.5  0.0  0.0  0.0  0.0  0.0  0.0 -0.5]
+       [0.0   0.0 0.0  0.5  0.5  0.0  0.0  0.0]]
+
+   :q [[-2.0 -1.0 -1.0 -0.5 -0.5 -1.0 -1.0 -2.0]
+       [-1.0  0.0  0.0  0.0  0.0  0.0  0.0 -1.0]
+       [-1.0  0.0  0.5  0.5  0.5  0.5  0.0 -1.0]
+       [-0.5  0.0  0.5  0.5  0.5  0.5  0.0 -0.5]
+       [0.0  0.0  0.5  0.5  0.5  0.5  0.0 -0.5]
+       [-1.0  0.5  0.5  0.5  0.5  0.5  0.0 -1.0]
+       [-1.0  0.0  0.5  0.0  0.0  0.0  0.0 -1.0]
+       [-2.0 -1.0 -1.0 -0.5 -0.5 -1.0 -1.0 -2.0]]
+
+   :k [[-3.0 -4.0 -4.0 -5.0 -5.0 -4.0 -4.0 -3.0]
+       [-3.0 -4.0 -4.0 -5.0 -5.0 -4.0 -4.0 -3.0]
+       [-3.0 -4.0 -4.0 -5.0 -5.0 -4.0 -4.0 -3.0]
+       [-3.0 -4.0 -4.0 -5.0 -5.0 -4.0 -4.0 -3.0]
+       [-2.0 -3.0 -3.0 -4.0 -4.0 -3.0 -3.0 -2.0]
+       [-1.0 -2.0 -2.0 -2.0 -2.0 -2.0 -2.0 -1.0]
+       [2.0  2.0  0.0  0.0  0.0  0.0  2.0  2.0]
+       [2.0  3.0  1.0  0.0  0.0  1.0  3.0  2.0]]})
+
+(def black-eval-table
+  (reduce-kv
+   (fn [acc k v] (assoc acc k (->> v
+                                   (mapv (fn [row] (mapv - row)))
+                                   reverse
+                                   vec)))
+   {}
+   white-eval-table))
+
+
+(defmulti get-piece-value (fn [piece row tile] piece))
+
+(get-in black-eval-table [:q 5 0])
+(defmethod get-piece-value :p [_ row tile] (+ -10 (get-in black-eval-table [:p row tile])))
+(defmethod get-piece-value :P [_ row tile] (+ 10 (get-in white-eval-table [:p row tile])))
+(defmethod get-piece-value :b [_ row tile] (+ -30 (get-in black-eval-table [:b row tile])))
+(defmethod get-piece-value :B [_ row tile] (+ 30 (get-in white-eval-table [:b row tile])))
+(defmethod get-piece-value :n [_ row tile] (+ -30 (get-in black-eval-table [:n row tile])))
+(defmethod get-piece-value :N [_ row tile] (+ 30 (get-in white-eval-table [:n row tile])))
+(defmethod get-piece-value :r [_ row tile] (+ -50 (get-in black-eval-table [:r row tile])))
+(defmethod get-piece-value :R [_ row tile] (+ 50 (get-in white-eval-table [:r row tile])))
+(defmethod get-piece-value :q [_ row tile] (+ -90 (get-in black-eval-table [:q row tile])))
+(defmethod get-piece-value :Q [_ row tile] (+ 90 (get-in white-eval-table [:q row tile])))
+(defmethod get-piece-value :k [_ row tile] (+ -900 (get-in black-eval-table [:k row tile])))
+(defmethod get-piece-value :K [_ row tile] (+ 900 (get-in white-eval-table [:k row tile])))
+(defmethod get-piece-value :e [_ row tile] 0)
+
 
 (defn evaluate-board [board]
   (reduce
-   (fn [total-score square] (+ total-score (get-piece-value (board/get-piece board square))))
+   (fn [total-score [row tile :as square]] (+ total-score (get-piece-value (board/get-piece board square) row tile)))
    0
    board/all-squares))
 
