@@ -10,8 +10,9 @@
   (:import
    (javax.swing UIManager ImageIcon)))
 
+(def test-fen "rnbqk2r/pppp1ppp/8/4p2Q/2BbP3/NP5N/P1P2nPP/R1B1K2R w KQkq")
 (def starting-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq")
-(def starting-game-state (parser/fen->game-state starting-fen))
+(def starting-game-state (parser/fen->game-state test-fen))
 
 (def game-state (atom starting-game-state))
 

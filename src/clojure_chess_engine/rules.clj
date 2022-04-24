@@ -302,50 +302,25 @@
            :player-on-move next-player
            :white-can-castle-ks? (if (or (= (:white-can-castle-ks? game-state) false)
                                          (= from-sq [7 4])
-                                         (= from-sq [7 7]))
+                                         (= from-sq [7 7])
+                                         (= to-sq [7 7]))
                                    false
                                    true)
            :white-can-castle-qs? (if (or (= (:white-can-castle-qs? game-state) false)
                                          (= from-sq [7 4])
-                                         (= from-sq [7 0]))
+                                         (= from-sq [7 0])
+                                         (= to-sq [7 0]))
                                    false
                                    true)
            :black-can-castle-ks? (if (or (= (:black-can-castle-ks? game-state) false)
                                          (= from-sq [0 4])
-                                         (= from-sq [0 7]))
+                                         (= from-sq [0 7])
+                                         (= to-sq [0 7]))
                                    false
                                    true)
            :black-can-castle-qs? (if (or (= (:black-can-castle-qs? game-state) false)
                                          (= from-sq [0 4])
-                                         (= from-sq [0 0]))
+                                         (= from-sq [0 0])
+                                         (= to-sq [0 0]))
                                    false
                                    true))))
-
-(defn get-legal-states [{:keys [board player-on-move] :as game-state} from-sq]
-  (let [legal-moves (get-legal-destinations game-state from-sq)]
-    (map #(let [board' (board/move-piece board from-sq %)
-                next-player (flip-player player-on-move)]
-            (assoc game-state
-                   :board board'
-                   :player-on-move next-player
-                   :white-can-castle-ks? (if (or (= (:white-can-castle-ks? game-state) false)
-                                                 (= from-sq [7 4])
-                                                 (= from-sq [7 7]))
-                                           false
-                                           true)
-                   :white-can-castle-qs? (if (or (= (:white-can-castle-qs? game-state) false)
-                                                 (= from-sq [7 4])
-                                                 (= from-sq [7 0]))
-                                           false
-                                           true)
-                   :black-can-castle-ks? (if (or (= (:black-can-castle-ks? game-state) false)
-                                                 (= from-sq [0 4])
-                                                 (= from-sq [0 7]))
-                                           false
-                                           true)
-                   :black-can-castle-qs? (if (or (= (:black-can-castle-qs? game-state) false)
-                                                 (= from-sq [0 4])
-                                                 (= from-sq [0 0]))
-                                           false
-                                           true)))
-         legal-moves)))
