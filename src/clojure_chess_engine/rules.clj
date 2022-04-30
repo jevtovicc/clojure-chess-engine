@@ -240,12 +240,21 @@
                                  :white-can-castle-ks? false
                                  :white-can-castle-qs? false)))))))
 
+(defn remove-castling [game-state]
+  (assoc game-state
+         :white-can-castle-ks? false
+         :white-can-castle-qs? false
+         :black-can-castle-ks? false
+         :black-can-castle-qs? false))
+
 (defn squares-attacked-by-player [{board :board :as game-state} player]
-  (->> board
-       board/occupied-squares
-       (filter #(= player (pieces/piece-color (board/get-piece board %))))
-       (mapcat #(get-pseudolegal-destinations game-state %))
-       distinct))
+  (let [gs-without-castling (remove-castling game-state)]
+    (->> board
+         board/occupied-squares
+         (filter #(= player (pieces/piece-color (board/get-piece board %))))
+         #_(remove #(contains? #{:k :K} (board/get-piece board %)))
+         (mapcat #(get-pseudolegal-destinations gs-without-castling %))
+         distinct)))
 
 (defn in-check? [{:keys [board player-on-move] :as game-state}]
   (let [attacked-king (get-players-king player-on-move)

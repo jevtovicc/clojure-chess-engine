@@ -11,6 +11,7 @@
    (javax.swing UIManager ImageIcon)))
 
 (def starting-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq")
+;; (def testing-fen "rnbq1bnr/pppp2pp/4ppk1/8/4P1K1/8/PPPP1PPP/RNBQ1BNR w -")
 (def starting-game-state (parser/fen->game-state starting-fen))
 
 (def game-state (atom starting-game-state))
