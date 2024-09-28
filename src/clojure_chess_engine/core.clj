@@ -49,7 +49,7 @@
      :id (str i "-" j)
      :background (rank-file->square-color i j)
      :icon (ImageIcon. (pieces/piece->imgsrc piece))
-     :listen [:action handle-click])))
+     :listen [:action (fn [e] (handle-click e))])))
 
 (def board-pane (seesaw/grid-panel
                  :rows 8
@@ -100,7 +100,7 @@
     (rules/make-move game-state from-sq to-sq)))
 
 (defn make-ai-move [game-state]
-  (let [[_ best-move] (ai/minimax-min game-state 3)
+  (let [[_ best-move] (ai/minimax-min game-state 4)
         [from-sq to-sq] best-move]
     (rules/make-move game-state from-sq to-sq)))
 
@@ -112,30 +112,49 @@
 (defn handle-click [e]
   (let [id (seesaw/config e :id)
         square (id->square (name id))]
-    (cond
-      (contains? (seesaw/config e :class) "square-legal") (let [selected-square (first (seesaw/select board-pane [:.square-selected]))
-                                                                from-sq (id->square (name (seesaw/config selected-square :id)))]
-                                                            (swap! game-state #(rules/make-move % from-sq square))
-                                                            (draw-board (:board @game-state))
-                                                            (if (rules/check-mate? @game-state)
-                                                              (do
-                                                                (seesaw/alert "Game over!")
-                                                                (reset-game))
-                                                              (do (swap! game-state make-ai-move)
-                                                                  (draw-board (:board @game-state))
-                                                                  (when (rules/check-mate? @game-state)
-                                                                    (seesaw/alert "Game over!")
-                                                                    (reset-game)))))
-      (board/square-empty? (:board @game-state) square) (do (untag-legal-squares)
-                                                            (untag-selected-square))
-      :else (let [legal-moves (rules/get-legal-destinations @game-state square)]
-              (untag-legal-squares)
-              (untag-selected-square)
-              (seesaw/config! e :class :square-selected :border (ssborder/line-border :thickness 4 :color :green))
-              (tag-legal-squares legal-moves)))))
+    (when (= (:player-on-move @game-state) :white)
+      (cond
+      ;; Case 4: If clicked on a legal square, move the selected piece.
+        (contains? (seesaw/config e :class) "square-legal")
+        (let [selected-square (first (seesaw/select board-pane [:.square-selected]))
+              from-sq (id->square (name (seesaw/config selected-square :id)))]
+        ;; Make the player's move and immediately update the board.
+          (swap! game-state #(rules/make-move % from-sq square))
+          (draw-board (:board @game-state))
+
+        ;; After player's move, check for checkmate before AI moves.
+          (if (rules/check-mate? @game-state)
+            (do
+              (seesaw/alert "Game over!")
+              (reset-game))
+          ;; Start AI move in a background thread.
+            (future
+              (swap! game-state make-ai-move)
+              (seesaw/invoke-later
+               (draw-board (:board @game-state))
+               (when (rules/check-mate? @game-state)
+                 (seesaw/alert "Game over!")
+                 (reset-game))))))
+
+      ;; Case 3: If clicked on a non-legal square, unselect the piece.
+        (board/square-empty? (:board @game-state) square)
+        (do
+          (untag-legal-squares)
+          (untag-selected-square))
+
+      ;; Case 1 & 2: Select or re-select a piece and tag its legal moves.
+        :else
+        (let [legal-moves (rules/get-legal-destinations @game-state square)]
+          (untag-legal-squares)
+          (untag-selected-square)
+          (seesaw/config! e :class :square-selected :border (ssborder/line-border :thickness 4 :color :green))
+          (tag-legal-squares legal-moves))))))
 
 (defn- main []
   (UIManager/setLookAndFeel (UIManager/getCrossPlatformLookAndFeelClassName))
   (seesaw/show! my-frame))
 
 (main)
+
+
+@game-state
